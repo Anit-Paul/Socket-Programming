@@ -1,3 +1,5 @@
+#include "socketUtil.h"
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,55 +7,48 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-void main() {
-  struct sockaddr_in my_addr;
+int main() {
 
-  int sockfd;
+  int sockfd = make_ipv4_tcp_socket();
 
-  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-    printf("Error while creating the socket</ span> n");
+  struct sockaddr_in *addr = get_addr("", 2000);
+
+  if (bind(sockfd, (struct sockaddr *)addr, sizeof(*addr)) < 0) {
+    perror("bind failed");
     exit(1);
   }
 
-  bzero(&my_addr, sizeof(my_addr)); // zero structure out
-
-  my_addr.sin_family = AF_INET; // match the socket() call
-
-  my_addr.sin_port = htons(5100); // specify port to listen on
-
-  my_addr.sin_addr.s_addr =
-      htonl(INADDR_ANY); // allow the server to accept a client connection on
-                         // any interface
-
-  if ((bind(sockfd, (struct sockaddr *)&my_addr, sizeof(my_addr))) < 0) {
-    perror("Error in binding\n");
+  if (listen(sockfd, 5) == -1) {
+    perror("listen failed");
     exit(1);
   }
 
-  if (listen(sockfd, 3) == -1) {
-    printf("error in listen\n");
-    exit(1);
-  }
-
-  struct sockaddr_in client_addr;
+  struct sockaddr client_addr;
   socklen_t client_len = sizeof(client_addr);
-  int client_fd = accept(sockfd, (struct sockaddr *)&client_addr, &client_len);
-  if (client_fd < 0) {
-    printf("Error in accept\n");
+  int clientfd = accept(sockfd, &client_addr, &client_len);
+  if (clientfd == -1) {
+    perror("accept failed");
     exit(1);
   }
 
-  // Now you can use client_fd to send/receive data
-  printf("Client connected\n");
-
-  char buffer[1024];
-  int bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
-  if (bytes_read > 0) {
+  while (1) {
+    char buffer[1024];
+    int bytes_read = read(clientfd, buffer, sizeof(buffer) - 1);
+    if (bytes_read <= 0)
+      break;
     buffer[bytes_read] = '\0';
-    printf("Received: %s\n", buffer);
-    write(client_fd, "Hello from server", 17);
+    printf("Client: %s\n", buffer);
+    char *s = (char *)malloc(500 * sizeof(char));
+    printf("Server: ");
+    fgets(s, 499, stdin);
+    size_t len = strlen(s);
+    if (len > 0 && s[len - 1] == '\n')
+      s[len - 1] = '\0';
+    write(clientfd, s, strlen(s));
+    free(s);
   }
 
-  close(client_fd);
+  close(clientfd);
   close(sockfd);
+  return 0;
 }

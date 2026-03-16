@@ -1,3 +1,5 @@
+#include "socketUtil.h"
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,36 +8,37 @@
 #include <unistd.h>
 
 int main() {
-  int sockfd;
-
-  if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-    printf("Error while creating the socket\n");
-
+  // making a socket
+  int sockfd = make_ipv4_tcp_socket();
+  // for connection
+  struct sockaddr_in *addr = get_addr("127.0.0.1", 2000);
+  int result = connect(sockfd, (struct sockaddr *)addr, sizeof(*addr));
+  if (result < 0) {
+    printf("connection failed");
     exit(1);
   }
-  struct sockaddr_in server_addr;
-  bzero(&server_addr, sizeof(server_addr));
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(5100);
-  //server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); // Connect to localhost (For same machine)
-  inet_pton(AF_INET, "192.168.29.37", &server_addr.sin_addr); //for different machines
+  free(addr);
+  addr = NULL;
+  printf("connection successful\n");
+  // communication
+  while (1) {
+    char *message = (char *)malloc(500 * sizeof(char));
+    printf("Client: ");
+    fgets(message, 499, stdin);
+    size_t len = strlen(message);
+    if (len > 0 && message[len - 1] == '\n')
+      message[len - 1] = '\0';
+    write(sockfd, message, strlen(message));
 
-  if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) <
-      0) {
-    printf("Error in connect\n");
-    exit(1);
+    char buffer[1024];
+    int bytes_read = read(sockfd, buffer, sizeof(buffer) - 1);
+    if (bytes_read <= 0)
+      break;
+    buffer[bytes_read] = '\0';
+    printf("Server: %s\n", buffer);
+    free(message);
   }
-
-  printf("Connected to server\n");
-
-  char buffer[1024];
-  strcpy(buffer, "Hello from client\n");
-  write(sockfd, buffer, strlen(buffer));
-
-  bzero(buffer, sizeof(buffer));
-  read(sockfd, buffer, sizeof(buffer) - 1);
-  printf("Received from server: %s", buffer);
 
   close(sockfd);
-  printf("Connection closed\n");
+  return 0;
 }

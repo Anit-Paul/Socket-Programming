@@ -17,7 +17,8 @@ int main() {
   bzero(&server_addr, sizeof(server_addr));
   server_addr.sin_family = AF_INET;
   server_addr.sin_port = htons(5100);
-  server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); // Connect to localhost
+  //server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK); // Connect to localhost (For same machine)
+  inet_pton(AF_INET, "192.168.29.37", &server_addr.sin_addr); //for different machines
 
   if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) <
       0) {
